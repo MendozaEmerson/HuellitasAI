@@ -1,131 +1,92 @@
 import { AuthViewModel } from '@/src/models/authmodel';
+import { supabase } from '@/src/services/supabase';
+import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 
-// --- Importa tu servicio real de Firebase/Supabase aquí ---
-// EJ: import { auth } from '@/src/services/FirebaseConfig';
-// EJ: import { onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-
-// --- Creación del Contexto ---
 const AuthContext = createContext<AuthViewModel | undefined>(undefined);
 
-// --- El Proveedor (ViewModel - VM) ---
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-
-    // --- Estado Interno del ViewModel ---
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isLoading, setIsLoading] = useState(true); // Empezar cargando
-    // Opcional: puedes añadir el estado del usuario si lo necesitas globalmente
-    // const [user, setUser] = useState<any>(null); // Reemplaza 'any' con tu tipo de Usuario
+    const [isLoading, setIsLoading] = useState(true);
+    const [session, setSession] = useState<Session | null>(null);
 
-    // --- Lógica de Arranque (Listener de Estado) ---
-    // Este es el "corazón" de un AuthContext real.
-    // Escucha cambios de estado de Firebase/Supabase en tiempo real.
     useEffect(() => {
-        setIsLoading(true);
+        // 1. Verificar sesión guardada al arrancar
+        const initializeAuth = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                setSession(session);
+                setIsAuthenticated(!!session);
+            } catch (error) {
+                console.error("Error verificando sesión:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
 
-        // --- ¡AQUÍ VA LA CONEXIÓN REAL! (Ej. Firebase) ---
-        // Descomenta esto cuando tengas Firebase configurado:
-        /*
-        const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-          if (firebaseUser) {
-            // Usuario está logueado
-            setIsAuthenticated(true);
-            // setUser(firebaseUser);
-            console.log("VM (Listener): Usuario detectado", firebaseUser.email);
-          } else {
-            // Usuario no está logueado
-            setIsAuthenticated(false);
-            // setUser(null);
-            console.log("VM (Listener): No hay usuario.");
-          }
-          setIsLoading(false);
-        });
-        
-        // Cleanup: se desuscribe cuando el componente se desmonta
-        return () => unsubscribe();
-        */
+        initializeAuth();
 
-        // --- Simulación (Borrar cuando conectes Firebase) ---
-        const timer = setTimeout(() => {
-            console.log("VM: Simulación de arranque, usuario no logueado.");
+        // 2. Escuchar cambios en tiempo real (Login, Logout, Expiración)
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            setIsAuthenticated(!!session);
             setIsLoading(false);
-        }, 1000);
-        return () => clearTimeout(timer);
-        // --- Fin de Simulación ---
+        });
 
+        return () => subscription.unsubscribe();
     }, []);
 
-    // --- Lógica de Negocio (Funciones del ViewModel) ---
-
-    /**
-     * Inicia sesión con email y contraseña.
-     */
+    // --- Login ---
     const signIn = async (email: string, pass: string) => {
-        console.log("VM: Intentando iniciar sesión con", email);
         setIsLoading(true);
+        const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password: pass,
+        });
 
-        try {
-            // --- ¡AQUÍ VA LA CONEXIÓN REAL! (Ej. Firebase) ---
-            // Descomenta esto cuando tengas Firebase:
-            /*
-            const userCredential = await signInWithEmailAndPassword(auth, email, pass);
-            // El listener (onAuthStateChanged) detectará el cambio y 
-            // actualizará 'isAuthenticated' automáticamente.
-            console.log("VM: Inicio de sesión exitoso para", userCredential.user.email);
-            */
-
-            // --- Simulación (Borrar cuando conectes Firebase) ---
-            if (email === 'test@user.com' && pass === '123456') {
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                setIsAuthenticated(true); // En la simulación, esto es manual.
-                console.log("VM: Simulación de login exitosa");
-            } else {
-                throw new Error("Credenciales incorrectas (simulado)");
-            }
-            // --- Fin de Simulación ---
-
-        } catch (error: any) {
-            console.error("VM Error (signIn):", error.message);
-            // Aquí podrías setear un estado de error para la Vista
-            // ej: setError(error.message);
-        } finally {
-            // Esto se ejecuta siempre, haya éxito or error
-            setIsLoading(false);
+        if (error) {
+            Alert.alert("Error al iniciar sesión", error.message);
+            setIsLoading(false); // Solo dejamos de cargar si hay error, si no, el listener lo hará
         }
+        // Si es exitoso, onAuthStateChange actualizará el estado automáticamente
     };
 
-    /**
-     * Cierra la sesión del usuario.
-     */
+    // --- Registro (Nuevo) ---
+    const signUp = async (email: string, pass: string): Promise<boolean> => {
+        setIsLoading(true);
+        const { error } = await supabase.auth.signUp({
+            email,
+            password: pass,
+        });
+
+        if (error) {
+            Alert.alert("Error en el registro", error.message);
+            setIsLoading(false);
+            return false;
+        }
+
+        Alert.alert("Registro Exitoso", "¡Cuenta creada! Por favor inicia sesión.");
+        setIsLoading(false);
+        return true;
+    };
+
+    // --- Cerrar Sesión ---
     const signOut = async () => {
-        console.log("VM: Cerrando sesión...");
         setIsLoading(true);
-
-        try {
-            // --- ¡AQUÍ VA LA CONEXIÓN REAL! (Ej. Firebase) ---
-            // Descomenta esto:
-            // await firebaseSignOut(auth);
-            // El listener (onAuthStateChanged) detectará el cambio.
-
-            // --- Simulación (Borrar cuando conectes Firebase) ---
-            await new Promise(resolve => setTimeout(resolve, 500));
-            setIsAuthenticated(false); // En la simulación, esto es manual.
-            // --- Fin de Simulación ---
-
-        } catch (error: any) {
-            console.error("VM Error (signOut):", error.message);
-            // ej: setError(error.message);
-        } finally {
-            setIsLoading(false);
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+            console.error("Error al cerrar sesión:", error.message);
         }
+        setIsLoading(false);
     };
 
-    // --- Valor del ViewModel a exponer ---
     const value: AuthViewModel = {
         isAuthenticated,
         isLoading,
         signIn,
-        signOut
+        signUp,
+        signOut,
     };
 
     return (
@@ -135,7 +96,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 }
 
-// --- El Hook (Consumidor del ViewModel) ---
 export function useAuthViewModel() {
     const context = useContext(AuthContext);
     if (context === undefined) {

@@ -3,6 +3,7 @@ import { supabase } from '@/src/services/supabase';
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
+import api from '@/src/services/api';
 
 const AuthContext = createContext<AuthViewModel | undefined>(undefined);
 
@@ -55,23 +56,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // --- Registro (Nuevo) ---
     const signUp = async (email: string, pass: string): Promise<boolean> => {
         setIsLoading(true);
-        console.log("Intentando registrar:", email); // LOG NUEVO
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
             email,
             password: pass,
         });
 
         if (error) {
-            // LOG DEL ERROR REAL DE SUPABASE
-            console.error("ERROR SUPABASE:", error.message);
-
             Alert.alert("Error en el registro", error.message);
             setIsLoading(false);
             return false;
         }
 
-        console.log("Registro exitoso en Supabase"); // LOG DE ÉXITO
+        // ⭐ NUEVO: Sincronizar con backend
+        try {
+            const response = await api.post('/auth/sync', {
+                user_id: data.user!.id,
+                email: data.user!.email,
+                full_name: email.split('@')[0], // Temporal: usar parte del email
+            });
+            console.log('✅ Usuario sincronizado con backend:', response.data);
+        } catch (backendError) {
+            console.error('⚠️ Error sincronizando con backend:', backendError);
+            // No falla el registro, solo log del error
+        }
+
         Alert.alert("Registro Exitoso", "¡Cuenta creada!");
         setIsLoading(false);
         return true;

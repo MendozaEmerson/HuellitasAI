@@ -4,6 +4,7 @@ import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
 import api from '@/src/services/api';
+import { registerForPushNotificationsAsync } from '@/src/services/notificationService';
 
 const AuthContext = createContext<AuthViewModel | undefined>(undefined);
 
@@ -19,6 +20,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const { data: { session } } = await supabase.auth.getSession();
                 setSession(session);
                 setIsAuthenticated(!!session);
+                
+                // Si hay sesión, registrar notificaciones
+                if (session) {
+                    registerForPushNotificationsAsync();
+                }
             } catch (error) {
                 console.error("Error verificando sesión:", error);
             } finally {
@@ -33,6 +39,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setSession(session);
             setIsAuthenticated(!!session);
             setIsLoading(false);
+            
+            // Registrar notificaciones cuando usuario inicia sesión
+            if (session) {
+                registerForPushNotificationsAsync();
+            }
         });
 
         return () => subscription.unsubscribe();
@@ -48,9 +59,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
             Alert.alert("Error al iniciar sesión", error.message);
-            setIsLoading(false); // Solo dejamos de cargar si hay error, si no, el listener lo hará
+            setIsLoading(false);
         }
-        // Si es exitoso, onAuthStateChange actualizará el estado automáticamente
+        // onAuthStateChange registrará notificaciones automáticamente
     };
 
     // --- Registro (Nuevo) ---

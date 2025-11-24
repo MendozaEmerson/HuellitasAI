@@ -9,8 +9,33 @@ import 'react-native-reanimated';
 // 1. Importar el Proveedor y el Hook del ViewModel
 import { AuthProvider, useAuthViewModel } from '@/src/viewmodels/authviewmodel';
 
+// Importar servicio de notificaciones
+import { setupNotificationListeners } from '@/src/services/notificationService';
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+
+  // Inicializar listeners de notificaciones
+  React.useEffect(() => {
+    const cleanup = setupNotificationListeners(
+      (notification) => {
+        // Notificación recibida (app abierta)
+        console.log('📬 Nueva notificación:', notification.request.content.title);
+      },
+      (response) => {
+        // Usuario tocó la notificación
+        const data = response.notification.request.content.data as any;
+        
+        if (data?.type === 'new_match') {
+          console.log('🔔 Match nuevo:', data.match_id);
+          // TODO: Navegar a pantalla de matches cuando esté implementada
+          // router.push(`/(app)/matches?id=${data.match_id}`);
+        }
+      }
+    );
+
+    return cleanup;
+  }, []);
 
   return (
     // 2. Envolver TODA la aplicación con el AuthProvider

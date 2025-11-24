@@ -2,9 +2,7 @@
 import axios from 'axios';
 import { supabase } from './supabase';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/api'
-  : 'https://huellitas-backend-892115920383.us-central1.run.app/api';
+const API_BASE_URL = 'https://huellitas-backend-892115920383.us-central1.run.app/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

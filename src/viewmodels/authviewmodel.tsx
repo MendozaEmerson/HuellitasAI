@@ -1,10 +1,12 @@
 import { AuthViewModel } from '@/src/models/authmodel';
+import api from '@/src/services/api';
 import { supabase } from '@/src/services/supabase';
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import api from '@/src/services/api';
+// Importamos registerForPushNotificationsAsync pero la usaremos con cuidado
 import { registerForPushNotificationsAsync } from '@/src/services/notificationService';
+import Constants from 'expo-constants'; // Necesario para detectar Expo Go
 
 const AuthContext = createContext<AuthViewModel | undefined>(undefined);
 
@@ -13,6 +15,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [isLoading, setIsLoading] = useState(true);
     const [session, setSession] = useState<Session | null>(null);
 
+    // Función auxiliar segura para registrar notificaciones
+    const safeRegisterNotifications = async () => {
+        try {
+            // Verificamos si estamos en Expo Go para evitar el crash
+            const isExpoGo = Constants.appOwnership === 'expo';
+            if (isExpoGo) {
+                console.log("⚠️ Expo Go detectado: Saltando registro de Push Notifications para evitar crash.");
+                return;
+            }
+
+            await registerForPushNotificationsAsync();
+        } catch (e) {
+            console.log("⚠️ Error no crítico al registrar notificaciones (probablemente en Expo Go):", e);
+        }
+    };
+
     useEffect(() => {
         // 1. Verificar sesión guardada al arrancar
         const initializeAuth = async () => {
@@ -20,10 +38,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 const { data: { session } } = await supabase.auth.getSession();
                 setSession(session);
                 setIsAuthenticated(!!session);
-                
-                // Si hay sesión, registrar notificaciones
+
                 if (session) {
-                    registerForPushNotificationsAsync();
+                    safeRegisterNotifications();
                 }
             } catch (error) {
                 console.error("Error verificando sesión:", error);
@@ -34,15 +51,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         initializeAuth();
 
-        // 2. Escuchar cambios en tiempo real (Login, Logout, Expiración)
+        // 2. Escuchar cambios en tiempo real
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setSession(session);
             setIsAuthenticated(!!session);
             setIsLoading(false);
-            
-            // Registrar notificaciones cuando usuario inicia sesión
+
             if (session) {
-                registerForPushNotificationsAsync();
+                safeRegisterNotifications();
             }
         });
 
@@ -61,10 +77,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             Alert.alert("Error al iniciar sesión", error.message);
             setIsLoading(false);
         }
-        // onAuthStateChange registrará notificaciones automáticamente
     };
 
-    // --- Registro (Nuevo) ---
+    // --- Registro ---
     const signUp = async (email: string, pass: string): Promise<boolean> => {
         setIsLoading(true);
 
@@ -79,17 +94,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return false;
         }
 
-        // ⭐ NUEVO: Sincronizar con backend
+        // Sincronizar con backend
         try {
-            const response = await api.post('/auth/sync', {
-                user_id: data.user!.id,
-                email: data.user!.email,
-                full_name: email.split('@')[0], // Temporal: usar parte del email
-            });
-            console.log('✅ Usuario sincronizado con backend:', response.data);
+            if (data.user) {
+                await api.post('/auth/sync', {
+                    user_id: data.user.id,
+                    email: data.user.email,
+                    full_name: email.split('@')[0],
+                });
+                console.log('✅ Usuario sincronizado con backend');
+            }
         } catch (backendError) {
             console.error('⚠️ Error sincronizando con backend:', backendError);
-            // No falla el registro, solo log del error
         }
 
         Alert.alert("Registro Exitoso", "¡Cuenta creada!");

@@ -80,12 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     // --- Registro ---
-    const signUp = async (email: string, pass: string): Promise<boolean> => {
+    const signUp = async (email: string, pass: string, full_name: string, phone: string): Promise<boolean> => {
         setIsLoading(true);
 
         const { data, error } = await supabase.auth.signUp({
             email,
             password: pass,
+            phone
         });
 
         if (error) {
@@ -100,7 +101,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 await api.post('/auth/sync', {
                     user_id: data.user.id,
                     email: data.user.email,
-                    full_name: email.split('@')[0],
+                    full_name: full_name,
+                    phone_number: phone
                 });
                 console.log('✅ Usuario sincronizado con backend');
             }

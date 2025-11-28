@@ -78,8 +78,8 @@ class ReportService {
 
         // Formatear fecha
         const dateStr = formData.lost_date instanceof Date
-            ? formData.lost_date.toISOString().split('T')[0]
-            : new Date().toISOString().split('T')[0];
+            ? formData.lost_date.toISOString()
+            : new Date().toISOString();
         data.append('lost_date', dateStr);
 
         // 3. Adjuntar campos opcionales

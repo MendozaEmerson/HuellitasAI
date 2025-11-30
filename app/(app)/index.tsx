@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { PetCard } from '@/components/pet-card';
 import { Pet } from '@/src/models/petmodel';
 import { useAuthViewModel } from '@/src/viewmodels/authviewmodel';
+import { sendTestNotificationAsync } from '@/src/services/notificationService';
 
 import {
   ActivityIndicator,
@@ -75,9 +76,18 @@ export default function HomeTab() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Mascotas perdidas</Text>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {/* BOTÓN DE PRUEBA - REMOVER ANTES DE PRODUCCIÓN */}
+          <TouchableOpacity 
+            onPress={sendTestNotificationAsync} 
+            style={styles.testButton}
+          >
+            <Text style={styles.testButtonText}>🔔</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Text style={styles.logoutText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Barra de búsqueda */}
@@ -137,6 +147,17 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#2c3e50',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  testButton: {
+    padding: 8,
+  },
+  testButtonText: {
+    fontSize: 24,
   },
   logoutButton: {
     padding: 8,

@@ -6,7 +6,7 @@ const API_BASE_URL = 'https://huellitas-backend-892115920383.us-central1.run.app
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },

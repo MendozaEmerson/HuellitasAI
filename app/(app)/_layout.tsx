@@ -44,6 +44,22 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="settings.fill" color={color} />,
         }}
       />
+      {/* Esta pantalla no es accesible */}
+      <Tabs.Screen
+        name="search-results"
+        options={{
+          href: null, // ← Esto la oculta de los tabs
+          title: 'Resultados de Búsqueda',
+        }}
+      />
+      {/* Nueva pantalla de detalles */}
+      <Tabs.Screen
+        name="pet-details"
+        options={{
+          href: null, // Oculta de los tabs
+          title: 'Detalles',
+        }}
+      />
     </Tabs>
   );
 }

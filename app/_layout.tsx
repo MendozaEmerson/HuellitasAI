@@ -1,5 +1,7 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
@@ -10,13 +12,29 @@ import 'react-native-reanimated';
 import { AuthProvider, useAuthViewModel } from '@/src/viewmodels/authviewmodel';
 
 // Importar servicio de notificaciones
-import { setupNotificationListeners } from '@/src/services/notificationService';
+import { 
+  setupNotificationListeners,
+  registerForPushNotificationsAsync  // ← NUEVA IMPORTACIÓN
+} from '@/src/services/notificationService';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   // Inicializar listeners de notificaciones
   React.useEffect(() => {
+    if (Constants.appOwnership === 'expo') {
+      console.log('Expo Go detectado - Saltando configuración de notificaciones');
+      return;
+    }
+    
+    Notifications.setNotificationCategoryAsync('new_match', [
+      {
+        identifier: 'view_match',
+        buttonTitle: 'Ver Match',
+        options: { opensAppToForeground: true },
+      },
+    ]);
+
     const cleanup = setupNotificationListeners(
       (notification) => {
         // Notificación recibida (app abierta)
@@ -28,7 +46,8 @@ export default function RootLayout() {
         
         if (data?.type === 'new_match') {
           console.log('🔔 Match nuevo:', data.match_id);
-          // TODO: Navegar a pantalla de matches cuando esté implementada
+          // TODO: Descomentar cuando la pantalla de matches esté implementada
+          // const router = useRouter();
           // router.push(`/(app)/matches?id=${data.match_id}`);
         }
       }
@@ -54,9 +73,30 @@ function RootNavigation() {
   const { isAuthenticated, isLoading } = useAuthViewModel();
   const router = useRouter();
 
-  // CORRECCIÓN: Forzamos el tipo a string[] para evitar el error de TypeScript 
-  // que piensa que segments.length nunca puede ser 0.
   const segments = useSegments() as string[];
+
+  React.useEffect(() => {
+    // Solo actualizar si está autenticado y no está en Expo Go
+    if (!isAuthenticated || isLoading) return;
+    
+    if (Constants.appOwnership === 'expo') {
+      console.log('⚠️ Expo Go detectado - Saltando actualización de token');
+      return;
+    }
+
+    // Actualizar token en background
+    const updateTokenOnAppOpen = async () => {
+      try {
+        console.log('🔄 Actualizando token de notificaciones...');
+        await registerForPushNotificationsAsync();
+        console.log('✅ Token actualizado exitosamente');
+      } catch (error) {
+        console.error('❌ Error actualizando token:', error);
+      }
+    };
+
+    updateTokenOnAppOpen();
+  }, [isAuthenticated, isLoading]); // Se ejecuta cuando cambia el estado de autenticación
 
   // 4. Lógica de Redirección (El Guardián)
   React.useEffect(() => {
@@ -67,11 +107,9 @@ function RootNavigation() {
 
     if (!isAuthenticated && inAppGroup) {
       // CASO 1: No está logueado, pero intenta entrar a la App
-      // CORRECCIÓN: La ruta raíz es '/' (no '/index')
       router.replace('/');
     } else if (isAuthenticated && (segments.length === 0 || inAuthGroup || segments[0] === 'index')) {
       // CASO 2: Ya está logueado, pero está en Login, Registro o Bienvenida
-      // (Al usar 'as string[]', podemos verificar length === 0 o 'index' sin errores)
       router.replace('/(app)');
     }
 

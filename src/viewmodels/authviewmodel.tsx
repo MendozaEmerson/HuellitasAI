@@ -4,8 +4,9 @@ import { supabase } from '@/src/services/supabase';
 import { Session } from '@supabase/supabase-js';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-// Importamos registerForPushNotificationsAsync pero la usaremos con cuidado
+// Importamos funciones de notificaciones
 import { registerForPushNotificationsAsync } from '@/src/services/notificationService';
+import { requestNotificationPermissionsAsync } from '@/src/services/notificationService';
 import Constants from 'expo-constants'; // Necesario para detectar Expo Go
 
 const AuthContext = createContext<AuthViewModel | undefined>(undefined);
@@ -25,6 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 return;
             }
 
+            // Primero solicitar permisos
+            await requestNotificationPermissionsAsync();
+            // Luego registrar el dispositivo
             await registerForPushNotificationsAsync();
         } catch (e) {
             console.log("⚠️ Error no crítico al registrar notificaciones (probablemente en Expo Go):", e);

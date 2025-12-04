@@ -1,12 +1,12 @@
-import { useState } from 'react';
-
+import { useState, useEffect, useCallback } from 'react';
 import { PetCard } from '@/components/pet-card';
-import { Pet } from '@/src/models/petmodel';
 import { useAuthViewModel } from '@/src/viewmodels/authviewmodel';
-
+import api from '@/src/services/api';
+import { useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   FlatList,
+  RefreshControl,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -15,59 +15,114 @@ import {
   View,
 } from 'react-native';
 
-const MOCK_PETS: Pet[] = [
-  {
-    id: '1',
-    name: 'Max',
-    imageUrl: 'https://images.unsplash.com/photo-1633722715463-d30f4f325e24?w=400',
-    location: 'Colonia Roma, CDMX',
-    type: 'dog',
-    status: 'lost',
-    createdAt: new Date().toISOString(),
-    userId: '123',
-  },
-  {
-    id: '2',
-    name: 'Luna',
-    imageUrl: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?w=400',
-    location: 'Condesa, CDMX',
-    type: 'cat',
-    status: 'lost',
-    createdAt: new Date().toISOString(),
-    userId: '123',
-  },
-  {
-    id: '3',
-    name: 'Rocky',
-    imageUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
-    location: 'Polanco, CDMX',
-    type: 'dog',
-    status: 'lost',
-    createdAt: new Date().toISOString(),
-    userId: '123',
-  },
-];
+// Interfaz para el reporte del backend
+interface LostReport {
+  id: string;
+  pet_name: string;
+  species: string;
+  breed: string;
+  image_url: string;
+  status: 'lost' | 'found';
+  last_seen_location_text: string;
+  lost_date: string;
+  user_id: string;
+}
 
 export default function HomeTab() {
-  // const router = useRouter(); 
-
-  // 3. Consumimos el estado y la función del ViewModel
-  const { signOut, isLoading } = useAuthViewModel();
-  const [pets, setPets] = useState<Pet[]>(MOCK_PETS);
+  const router = useRouter();
+  const { signOut, isLoading: authLoading } = useAuthViewModel();
+  
+  const [reports, setReports] = useState<LostReport[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handlePetPress = (pet: Pet) => {
-    //pantalla de detalles
-    console.log('Ver detalles de:', pet.name);
+  // Función para cargar reportes desde el backend
+  const loadReports = async () => {
+    try {
+      setError(null);
+      console.log('🔄 Iniciando carga de reportes...');
+      
+      // Verificar sesión primero
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('📌 Sesión actual:', session ? 'Activa' : 'No hay sesión');
+      
+      const response = await api.get('/lost-reports', {
+        params: {
+          limit: 50,
+          status: 'lost',
+        }
+      });
+
+      console.log('✅ Respuesta del servidor:', {
+        status: response.status,
+        success: response.data.success,
+        dataCount: response.data.data?.length || 0
+      });
+
+      if (response.data.success) {
+        const reportData = response.data.data || [];
+        setReports(reportData);
+        
+        if (reportData.length === 0) {
+          console.warn('⚠️ No hay reportes en la base de datos');
+        }
+      } else {
+        throw new Error('La respuesta del servidor no fue exitosa');
+      }
+    } catch (err: any) {
+      console.error('❌ Error completo:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status,
+        config: err.config?.url
+      });
+      
+      let errorMessage = 'Error al cargar reportes';
+      
+      if (err.response?.status === 401) {
+        errorMessage = 'Tu sesión ha expirado. Cierra sesión y vuelve a entrar.';
+      } else if (err.response?.status === 404) {
+        errorMessage = 'El servidor no encontró el endpoint de reportes.';
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (!err.response) {
+        errorMessage = 'No se pudo conectar al servidor. Verifica tu internet.';
+      }
+      
+      setError(errorMessage);
+    } finally {
+      setIsLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Cargar reportes al montar el componente
+  useEffect(() => {
+    loadReports();
+  }, []);
+
+  // Función para refrescar con pull-to-refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadReports();
+  }, []);
+
+  const handlePetPress = (report: LostReport) => {
+    // Navegar a pantalla de detalles con el ID del reporte
+    router.push(`/(app)/pet-details?id=${report.id}`);
   };
 
   const handleLogout = async () => {
     await signOut();
   };
 
-  const filteredPets = pets.filter(pet =>
-    pet.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pet.location.toLowerCase().includes(searchQuery.toLowerCase())
+  // Filtrar reportes por búsqueda
+  const filteredReports = reports.filter(report =>
+    report.pet_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    report.last_seen_location_text.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    report.breed.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -76,7 +131,7 @@ export default function HomeTab() {
       <View style={styles.header}>
         <Text style={styles.title}>Mascotas perdidas</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Text style={styles.logoutText}>Cerrar Sesión</Text>
+          <Text style={styles.logoutText}>🚪</Text>
         </TouchableOpacity>
       </View>
 
@@ -85,31 +140,54 @@ export default function HomeTab() {
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
-          placeholder="Buscar por nombre o ubicación..."
+          placeholder="Buscar por nombre, ubicación o raza..."
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
       </View>
+
+      {/* Error state */}
+      {error && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
 
       {/* Lista de mascotas */}
       {isLoading ? (
         <ActivityIndicator size="large" color="#FF9500" style={styles.loader} />
       ) : (
         <FlatList
-          data={filteredPets}
+          data={filteredReports}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <PetCard
-              pet={item}
+              pet={{
+                id: item.id,
+                name: item.pet_name,
+                imageUrl: item.image_url,
+                location: item.last_seen_location_text,
+                type: item.species === 'dog' ? 'dog' : item.species === 'cat' ? 'cat' : 'other',
+                status: item.status,
+                createdAt: item.lost_date,
+                userId: item.user_id,
+              }}
               onPress={() => handlePetPress(item)}
             />
           )}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={['#FF9500']}
+            />
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
-                No se encontraron mascotas
+                {searchQuery ? 'No se encontraron resultados' : 'No hay reportes aún'}
               </Text>
             </View>
           }
@@ -168,6 +246,17 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#2c3e50',
+  },
+  errorContainer: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    marginHorizontal: 16,
+    marginTop: 8,
+    borderRadius: 8,
+  },
+  errorText: {
+    color: '#c62828',
+    textAlign: 'center',
   },
   listContent: {
     paddingTop: 16,

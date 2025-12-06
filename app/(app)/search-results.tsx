@@ -1,15 +1,15 @@
 import api from '@/src/services/api';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    Image,
-    SafeAreaView,
-    TouchableOpacity,
-    StyleSheet,
-    Text,
-    View
+  ActivityIndicator,
+  FlatList,
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
 
 interface SearchResult {
@@ -41,7 +41,7 @@ export default function SearchResultsScreen() {
 
   const searchMatches = async () => {
     try {
-        setError(null);
+      setError(null);
       // Preparar FormData
       const formData = new FormData();
       formData.append('image', {
@@ -91,7 +91,7 @@ export default function SearchResultsScreen() {
 
   return (
     <>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           headerShown: true,
           title: 'Resultados de Búsqueda',

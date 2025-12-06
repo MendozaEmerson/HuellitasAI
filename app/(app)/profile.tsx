@@ -1,16 +1,18 @@
-import { useAuthViewModel } from '@/src/viewmodels/authviewmodel';
 import { supabase } from '@/src/services/supabase';
-import React, { useState, useEffect } from 'react';
-import { 
+import { useAuthViewModel } from '@/src/viewmodels/authviewmodel';
+import React, { useEffect, useState } from 'react';
+import {
     ActivityIndicator,
     Image,
     SafeAreaView,
     ScrollView,
-    StyleSheet, 
-    Text, 
+    StyleSheet,
+    Text,
     TouchableOpacity,
-    View 
+    View
 } from 'react-native';
+// 1. Importar Router
+import { useRouter } from 'expo-router';
 
 interface UserProfile {
     user_id: string;
@@ -21,10 +23,10 @@ interface UserProfile {
 }
 
 export default function ProfileTab() {
+    const router = useRouter(); // 2. Inicializar Router
     const { signOut } = useAuthViewModel();
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [myReportsCount, setMyReportsCount] = useState(0);
 
     useEffect(() => {
         loadProfile();
@@ -33,7 +35,7 @@ export default function ProfileTab() {
     const loadProfile = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            
+
             if (user) {
                 setProfile({
                     user_id: user.id,
@@ -62,7 +64,7 @@ export default function ProfileTab() {
         );
     }
 
-        if (!profile) {
+    if (!profile) {
         return (
             <View style={styles.errorContainer}>
                 <Text style={styles.errorText}>No se pudo cargar el perfil</Text>
@@ -77,8 +79,8 @@ export default function ProfileTab() {
         <SafeAreaView style={styles.container}>
             <ScrollView>
                 <View style={styles.header}>
-                    <Image 
-                        source={require('@/assets/images/Logo.png')}
+                    <Image
+                        source={require('@/assets/images/react-logo.png')} // Ajusta tu logo si es necesario
                         style={styles.avatar}
                     />
                     <Text style={styles.name}>{profile.full_name}</Text>
@@ -87,7 +89,7 @@ export default function ProfileTab() {
 
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Información Personal</Text>
-                    
+
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>📧 Email</Text>
                         <Text style={styles.infoValue}>{profile.email}</Text>
@@ -107,7 +109,19 @@ export default function ProfileTab() {
                 </View>
 
                 <View style={styles.section}>
-                    <TouchableOpacity 
+                    <Text style={styles.sectionTitle}>Mis Reportes</Text>
+
+                    {/* BOTÓN NUEVO: VER MIS COINCIDENCIAS */}
+                    <TouchableOpacity
+                        style={styles.matchButton}
+                        onPress={() => router.push('/(app)/match_results')}
+                    >
+                        <Text style={styles.matchButtonText}>🔍 Ver Mis Coincidencias</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={styles.section}>
+                    <TouchableOpacity
                         style={[styles.actionButton, styles.logoutButton]}
                         onPress={handleLogout}
                     >
@@ -166,6 +180,7 @@ const styles = StyleSheet.create({
         height: 100,
         borderRadius: 50,
         marginBottom: 16,
+        backgroundColor: '#ddd'
     },
     name: {
         fontSize: 24,
@@ -220,6 +235,20 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     logoutText: {
+        fontSize: 16,
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+
+    // Estilos del Botón de Match
+    matchButton: {
+        backgroundColor: '#ff8c00', // Naranja llamativo
+        paddingVertical: 16,
+        alignItems: 'center',
+        borderRadius: 12,
+        marginBottom: 10,
+    },
+    matchButtonText: {
         fontSize: 16,
         color: '#fff',
         fontWeight: 'bold',

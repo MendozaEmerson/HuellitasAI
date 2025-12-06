@@ -1,5 +1,5 @@
 import { LocationState, ReportFormData, ReportType } from '@/src/models/reportmodel';
-import { locationService } from '@/src/services/locationservice'; // ⬅️ Nuevo Servicio
+import { locationService } from '@/src/services/locationservice';
 import { reportService } from '@/src/services/report';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
@@ -38,22 +38,16 @@ export const useReportViewModel = () => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    // --- FUNCIÓN DE UBICACIÓN (Delega al Servicio) ---
     const handleLocationSelect = async () => {
         setIsLoadingLocation(true);
         try {
-            // Llamamos al servicio (Lógica encapsulada)
             const locationData = await locationService.getCurrentLocation();
-
             if (locationData) {
-                // Actualizamos el estado de ubicación
                 setLocationState({
                     latitude: locationData.latitude,
                     longitude: locationData.longitude,
                     address: locationData.address
                 });
-
-                // Actualizamos el formulario
                 setFormData(prev => ({
                     ...prev,
                     last_seen_location_text: locationData.address
@@ -85,10 +79,11 @@ export const useReportViewModel = () => {
         }
     };
 
-    const handleSubmitReport = async () => {
+    // CAMBIO: Ahora devuelve una Promesa con el string del ID o null
+    const handleSubmitReport = async (): Promise<string | null> => {
         if (!imageUri || !formData.last_seen_location_text || !formData.species || !formData.contactInfo) {
             setError("Faltan campos obligatorios (Foto, Tipo, Ubicación, Contacto).");
-            return;
+            return null;
         }
 
         setError(null);
@@ -96,10 +91,17 @@ export const useReportViewModel = () => {
 
         try {
             const reportData = await reportService.createReport(imageUri, formData);
-            Alert.alert("¡Éxito!", `Reporte enviado correctamente.`);
+
+            // Ya NO mostramos el Alert aquí para permitir navegación fluida
+            // Alert.alert("¡Éxito!", `Reporte enviado correctamente.`); 
+
             setFormData(initialFormData);
             setImageUri(null);
             setLocationState(initialLocationState);
+
+            // Retornamos el ID para que la vista lo use
+            return reportData.data.report.id;
+
         } catch (e) {
             let errorMessage = "Error desconocido al publicar el reporte.";
             if (e instanceof Error) {
@@ -107,6 +109,7 @@ export const useReportViewModel = () => {
             }
             setError(errorMessage);
             Alert.alert("Error de Publicación", errorMessage);
+            return null;
         } finally {
             setIsSubmitting(false);
         }

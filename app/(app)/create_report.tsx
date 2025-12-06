@@ -1,8 +1,7 @@
+import { useRouter } from 'expo-router'; // 1. Importar Router
 import React from 'react';
 import {
-    ActivityIndicator // Necesario para el loading del GPS
-    ,
-
+    ActivityIndicator,
     Platform,
     SafeAreaView,
     ScrollView,
@@ -13,13 +12,10 @@ import {
     View
 } from 'react-native';
 
-// 1. IMPORTAR COMPONENTES HIJOS
-import PhotosPlaceholder from '../../components/report/photosplaceholder';
-import ReportTypeSelector from '../../components/report/reporttypeselector';
-
-// 2. IMPORTAR FUNCIONES Y HOOKS
 import { useReportViewModel } from '@/src/viewmodels/reportviewmodel';
 import { FontAwesome, MaterialIcons } from '@expo/vector-icons';
+import PhotosPlaceholder from '../../components/report/photosplaceholder';
+import ReportTypeSelector from '../../components/report/reporttypeselector';
 
 const COLORS = {
     primary: '#3b5998',
@@ -32,13 +28,14 @@ const COLORS = {
     danger: '#ff4444',
 };
 
-
 export default function CreateReportTab() {
+    const router = useRouter(); // 2. Inicializar Router
+
     const {
         formData,
         isSubmitting,
         error,
-        isLoadingLocation, // Traemos el estado de carga
+        isLoadingLocation,
         setReportType,
         handleChange,
         handleSubmitReport,
@@ -52,9 +49,21 @@ export default function CreateReportTab() {
     const breedKey = 'breed' as keyof typeof formData;
     const descriptionKey = 'description' as keyof typeof formData;
     const contactKey = 'contactInfo' as keyof typeof formData;
-    // Clave para la ubicación
     const locationKey = 'last_seen_location_text' as keyof typeof formData;
 
+    // 3. Función para manejar el envío y la redirección
+    const onPublishPress = async () => {
+        const reportId = await handleSubmitReport();
+
+        if (reportId) {
+            // Éxito: Navegamos a Resultados
+            // Pasamos el reportId por si la vista de resultados quiere filtrar solo por este reporte
+            router.push({
+                pathname: "/(app)/match_results",
+                params: { reportId: reportId }
+            });
+        }
+    };
 
     return (
         <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -123,19 +132,17 @@ export default function CreateReportTab() {
                     />
                 </View>
 
-                {/* UBICACIÓN Y HORA (SECCIÓN MODIFICADA) */}
+                {/* UBICACIÓN Y HORA */}
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Ubicación y Hora</Text>
 
                     <Text style={styles.label}>Última Ubicación Vista</Text>
 
-                    {/* Contenedor Híbrido: Input + Botón GPS */}
                     <View style={styles.locationContainer}>
                         <TextInput
                             style={styles.locationTextInput}
                             placeholder="Escribe la dirección o usa el GPS ->"
                             value={formData[locationKey].toString()}
-                            // Ahora PERMITIMOS editar el texto manualmente
                             onChangeText={(text) => handleChange(locationKey, text)}
                             multiline
                         />
@@ -154,7 +161,6 @@ export default function CreateReportTab() {
                     </View>
                     <Text style={styles.helperText}>Toca el icono para usar tu GPS actual.</Text>
 
-
                     <Text style={[styles.label, { marginTop: 15 }]}>Fecha del Reporte</Text>
                     <View style={styles.dateInputDisplay}>
                         <FontAwesome name="calendar" size={18} color={COLORS.primary} />
@@ -168,7 +174,7 @@ export default function CreateReportTab() {
                 {error && <Text style={styles.errorText}>Error: {error}</Text>}
                 <TouchableOpacity
                     style={styles.publishButton}
-                    onPress={handleSubmitReport}
+                    onPress={onPublishPress} // 4. Usamos nuestra nueva función wrapper
                     disabled={isSubmitting}
                 >
                     {isSubmitting ? (
@@ -243,21 +249,20 @@ const styles = StyleSheet.create({
     },
     col: { width: '48%' },
 
-    // ESTILOS NUEVOS PARA UBICACIÓN HÍBRIDA
     locationContainer: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 5,
     },
     locationTextInput: {
-        flex: 1, // Toma todo el espacio posible
+        flex: 1,
         borderWidth: 1,
         borderColor: COLORS.border,
         padding: 12,
         borderTopLeftRadius: 8,
         borderBottomLeftRadius: 8,
         backgroundColor: '#fff',
-        height: 50, // Altura fija para alinear con botón
+        height: 50,
     },
     gpsButton: {
         backgroundColor: COLORS.primary,
@@ -274,7 +279,6 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
 
-    // Estilo solo visual para fecha (ya no es botón)
     dateInputDisplay: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -282,7 +286,7 @@ const styles = StyleSheet.create({
         borderColor: COLORS.border,
         padding: 12,
         borderRadius: 8,
-        backgroundColor: '#f9f9f9', // Grisáceo para indicar "no editable" por ahora
+        backgroundColor: '#f9f9f9',
     },
     placeholderText: {
         color: COLORS.text,

@@ -60,6 +60,13 @@ export default function TabLayout() {
           title: 'Detalles',
         }}
       />
+      <Tabs.Screen
+        name="match_results"
+        options={{
+          href: null, // Esto la oculta del TabBar
+          title: 'Resultados',
+        }}
+      />
     </Tabs>
   );
 }
